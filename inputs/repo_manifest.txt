@@ -1,0 +1,2 @@
+# Repo manifest placeholder
+# List key folders and important files here

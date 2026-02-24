@@ -1,0 +1,109 @@
+requirements:
+  description: |-
+    Read inputs from `inputs/context.md` and `inputs/constraints.yaml`. Also read `/inputs/previous_design_doc.md` and `inputs/previous_review_report.json` from the current run folder if present. Produce a Markdown section following the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Template:
+    ## Problem Statement
+    - 1–3 bullets describing the user problem and scope
+    ## Goals
+    - Bullets; include measurable success metrics if present
+    ## Non-Goals
+    - Bullets; include out-of-scope examples if present
+    ## Assumptions
+    - Bullets; anything not in inputs
+  expected_output: "Markdown with headings: Problem Statement, Goals, Non-Goals, Assumptions."
+  output_file: "{output_dir}/sections/requirements.md"
+
+architecture:
+  description: |-
+    Using the inputs, draft an Architecture Overview with components, boundaries, and a Mermaid diagram (C4-ish L1/L2). Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Template:
+    ## Architecture Overview
+    - 1–2 short paragraphs
+    ## Components
+    | Component | Responsibility | Interfaces |
+    | --- | --- | --- |
+    | ... | ... | ... |
+    ## Trade-offs
+    - 2–3 bullets
+    ## Diagram
+    ```mermaid
+    flowchart LR
+      A[Client] --> B[Service]
+    ```
+    ## Assumptions
+    - Bullets
+  expected_output: "Markdown with headings: Architecture Overview, Components, Trade-offs, Diagram."
+  output_file: "{output_dir}/sections/architecture.md"
+
+data_api:
+  description: |-
+    Draft Data Design and API/Interface Contracts. Provide entities, flows, storage/retention, and an API table or a minimal OpenAPI-like snippet. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Template:
+    ## Data Design
+    - 1–2 short paragraphs
+    ## Entities
+    | Entity | Key Fields | Source | Retention |
+    | --- | --- | --- | --- |
+    | ... | ... | ... | ... |
+    ## Data Flows
+    - Bullets
+    ## Storage/Retention
+    - Bullets
+    ## API / Interface Contracts
+    | Endpoint | Method | Request | Response | Errors |
+    | --- | --- | --- | --- | --- |
+    | ... | ... | ... | ... | ... |
+    ## Assumptions
+    - Bullets
+  expected_output: "Markdown with headings: Data Design, Entities, Data Flows, Storage/Retention, API / Interface Contracts."
+  output_file: "{output_dir}/sections/data_api.md"
+
+security:
+  description: |-
+    Perform a security/compliance review: threats, risks, mitigations. Reference constraints if available. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Template:
+    ## Risks & Mitigations
+    | Threat | Impact | Likelihood | Mitigation |
+    | --- | --- | --- | --- |
+    | ... | ... | ... | ... |
+    ## Security Controls
+    - Bullets
+    ## Assumptions
+    - Bullets
+  expected_output: "Markdown with headings: Risks & Mitigations, Security Controls."
+  output_file: "{output_dir}/sections/security.md"
+
+sre:
+  description: |-
+    Define Non-Functional Requirements and Ops Plan: SLIs/SLOs, logging, alerting, runbooks. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Template:
+    ## Non-Functional Requirements
+    | Metric | Target | Notes |
+    | --- | --- | --- |
+    | ... | ... | ... |
+    ## Observability
+    - Logging: bullets
+    - Metrics: bullets
+    - Alerts: bullets with thresholds
+    ## Ops Runbooks
+    - Bullets
+    ## Assumptions
+    - Bullets
+  expected_output: "Markdown with headings: Non-Functional Requirements, Observability, Ops Runbooks."
+  output_file: "{output_dir}/sections/nfrs_ops.md"
+
+integrate:
+  description: |-
+    Read all files in `{output_dir}/sections/` and integrate them into a single design doc. Use `templates/design_doc.md` as the base structure. Add missing sections: Context & Constraints, Rollout Plan, Test Strategy, Decision Log, Assumptions. Ensure consistent terminology. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions. Add a final "Consistency Checklist" section with bullets: terminology consistency, API naming, component naming.
+
+    Add a strict section:
+    ## Prior QA Report Review
+    - State whether `inputs/previous_review_report.json` was reviewed.
+    - List at least 2 specific issues addressed (or "No actionable issues" if none).
+  expected_output: "Complete design doc in Markdown."
+  output_file: "{output_dir}/design_doc.md"

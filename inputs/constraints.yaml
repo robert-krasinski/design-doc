@@ -1,0 +1,59 @@
+security:
+  compliance:
+    - none
+  data_classification: internal
+  pii: false
+  authn: required
+  authz: rbac
+  encryption:
+    at_rest: true
+    in_transit: true
+  audit_logging: true
+
+platform:
+  cloud: none
+  interface type: commandline interface only
+  regions:
+    - n/a
+  runtime: python
+  container: docker
+  database: postgres
+  cache: redis
+
+
+nfrs:
+  availability_target: 99.9%
+  latency_target_ms_p95: 300
+  throughput_target_rps: 200
+  monthly_budget_usd: 3000
+  rto_minutes: 60
+  rpo_minutes: 15
+
+operations:
+  observability:
+    logging: required
+    metrics: required
+    tracing: required
+  on_call:
+    coverage: business_hours
+  backups: daily
+  rollback: required
+
+data:
+  retention_days: 365
+  residency: us-only
+  deletion_sla_days: 30
+
+integrations:
+  inbound:
+    - name: upstream_system
+      protocol: https
+  outbound:
+    - name: analytics_sink
+      protocol: https
+
+constraints:
+  hard:
+    - "No customer data in logs"
+  soft:
+    - "Prefer managed services"
