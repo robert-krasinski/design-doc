@@ -1,0 +1,21 @@
+[project]
+name = "design-doc-automator"
+version = "0.1.0"
+description = "CrewAI-based design doc generator"
+requires-python = ">=3.10"
+dependencies = [
+  "crewai[google-genai]",
+  "pyyaml",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["design-doc/tests"]
+python_files = ["test_*.py"]
+
+[tool.uv]
+package = false
