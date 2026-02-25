@@ -17,7 +17,7 @@ from run_io import (
     update_run_manifest,
     write_run_manifest,
 )
-from orchestrator import preflight_tool_calling_check, run_crew
+from top_orchestrator import run_top_orchestrator
 
 
 def setup_logging(run_dir: Path) -> str:
@@ -32,13 +32,6 @@ def setup_logging(run_dir: Path) -> str:
         handlers=[logging.FileHandler(log_path, encoding="utf-8"), logging.StreamHandler()],
     )
     return str(log_path)
-
-
-def run_qa(output_dir: str) -> int:
-    # QA is deterministic and must run even if Crew fails.
-    from qa import main as qa_main
-
-    return qa_main(output_dir)
 
 
 if __name__ == "__main__":
@@ -61,14 +54,18 @@ if __name__ == "__main__":
 
     if not os.environ.get("OPENAI_API_KEY"):
         print("OPENAI_API_KEY is not set. Set it or use LOCAL_LLM_BASE_URL.")
+        crew_enabled = False
     else:
-        preflight_tool_calling_check()
-        run_crew(output_dir, prev_doc_path, prev_review_path)
+        crew_enabled = True
 
-    exit_code = run_qa(output_dir)
-    qa_report_path = root / output_dir / "review_report.json"
-    if qa_report_path.exists():
-        qa_data = json.loads(qa_report_path.read_text(encoding="utf-8"))
+    exit_code, qa_data = run_top_orchestrator(
+        output_dir,
+        prev_doc_path,
+        prev_review_path,
+        max_runs=10,
+        crew_enabled=crew_enabled,
+    )
+    if qa_data:
         update_run_manifest(
             manifest_path, qa_data.get("status", "UNKNOWN"), len(qa_data.get("issues", []))
         )
