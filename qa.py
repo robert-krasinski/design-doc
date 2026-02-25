@@ -47,6 +47,30 @@ def find_placeholders(doc: str) -> List[str]:
     return hits
 
 
+def extract_section_body(doc: str, section: str) -> str:
+    # Return the content under a top-level heading, excluding the heading line.
+    marker = f"## {section}"
+    start = doc.find(marker)
+    if start == -1:
+        return ""
+    body_start = start + len(marker)
+    remainder = doc[body_start:]
+    next_section = remainder.find("\n## ")
+    if next_section == -1:
+        return remainder.strip()
+    return remainder[:next_section].strip()
+
+
+def mentions_prior_qa_review(prior_review_section: str) -> bool:
+    # Accept semantically equivalent wording for prior QA review acknowledgment.
+    text = prior_review_section.lower()
+    if "previous_review_report.json" in text:
+        return True
+    has_prior_ref = "prior" in text or "previous" in text
+    has_report_ref = "qa report" in text or "review report" in text
+    return has_prior_ref and has_report_ref
+
+
 def validate_section_file(path: Path, required_headers: List[str], issues: List[dict]) -> None:
     # Verify each section artifact exists and contains the expected headings.
     if not path.exists():
@@ -136,22 +160,16 @@ def main(output_dir: str | None = None) -> int:
                         "fix": "Ensure inputs/previous_review_report.json contains content",
                     }
                 )
-            elif "prior qa report" not in doc.lower() and "previous qa report" not in doc.lower():
-                issues.append(
-                    {
-                        "section": "Document",
-                        "issue": "No indication that previous QA report was reviewed",
-                        "fix": "Mention review of previous QA report in Assumptions or Decision Log",
-                    }
-                )
-        else:
-            issues.append(
-                {
-                    "section": "Inputs",
-                    "issue": "Previous QA report not found for this run",
-                    "fix": "Ensure inputs/previous_review_report.json is created before the run",
-                }
-            )
+            else:
+                prior_review_section = extract_section_body(doc, "Prior QA Report Review").lower()
+                if not mentions_prior_qa_review(prior_review_section):
+                    issues.append(
+                        {
+                            "section": "Document",
+                            "issue": "No indication that previous QA report was reviewed",
+                            "fix": "Mention review of the previous QA report in the 'Prior QA Report Review' section",
+                        }
+                    )
 
         placeholders = find_placeholders(doc)
         if placeholders:

@@ -12,9 +12,9 @@ sys.path.insert(0, str(root))
 from config import configure_llm_defaults
 from diffs import summarize_changes
 from run_io import (
+    copy_inputs_snapshot,
     create_run_dir,
-    prepare_previous_inputs,
-    update_run_manifest,
+    prepare_previous_inputs_for_first_run,
     write_run_manifest,
 )
 from top_orchestrator import run_top_orchestrator
@@ -41,7 +41,8 @@ if __name__ == "__main__":
     logging.getLogger(__name__).info("Run log: %s", log_path)
     output_dir = str(run_dir.relative_to(root))
 
-    prev_doc_path, prev_review_path = prepare_previous_inputs(root, run_dir / "inputs")
+    copy_inputs_snapshot(root, run_dir / "inputs")
+    prev_doc_path, prev_review_path = prepare_previous_inputs_for_first_run(root, run_dir)
     previous_doc_text = None
     if prev_doc_path:
         prev_doc_abs = root / prev_doc_path
@@ -58,29 +59,29 @@ if __name__ == "__main__":
     else:
         crew_enabled = True
 
-    exit_code, qa_data = run_top_orchestrator(
+    exit_code, qa_data, final_output_dir, final_run_timestamp = run_top_orchestrator(
+        root,
+        run_dir,
+        run_timestamp,
         output_dir,
         prev_doc_path,
         prev_review_path,
-        max_runs=10,
+        manifest_path,
+        max_runs=3,
         crew_enabled=crew_enabled,
     )
-    if qa_data:
-        update_run_manifest(
-            manifest_path, qa_data.get("status", "UNKNOWN"), len(qa_data.get("issues", []))
-        )
 
     latest_design_doc = root / "outputs" / "design_doc.md"
     latest_review = root / "outputs" / "review_report.json"
-    dated_review = root / "outputs" / f"review_report_{run_timestamp}.json"
-    run_design_doc = root / output_dir / "design_doc.md"
-    run_review = root / output_dir / "review_report.json"
+    dated_review = root / "outputs" / f"review_report_{final_run_timestamp}.json"
+    run_design_doc = root / final_output_dir / "design_doc.md"
+    run_review = root / final_output_dir / "review_report.json"
 
     if run_design_doc.exists():
         current_doc_text = run_design_doc.read_text(encoding="utf-8")
         change_summary = summarize_changes(previous_doc_text, current_doc_text)
         run_change_summary = root / output_dir / "change_summary.md"
-        dated_change_summary = root / "outputs" / f"change_summary_{run_timestamp}.md"
+        dated_change_summary = root / "outputs" / f"change_summary_{final_run_timestamp}.md"
         run_change_summary.write_text(change_summary, encoding="utf-8")
         dated_change_summary.write_text(change_summary, encoding="utf-8")
         latest_design_doc.write_text(current_doc_text, encoding="utf-8")

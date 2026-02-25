@@ -14,7 +14,7 @@ def _prior_context_note(previous_doc_path: str | None, previous_review_path: str
         notes.append(f"- Prior QA report: `{previous_review_path}`")
     if not notes:
         return ""
-    return "If available, use prior artifacts:\\n" + "\\n".join(notes) + "\\n"
+    return "Run-specific prior artifacts (if present):\n" + "\n".join(notes)
 
 
 @lru_cache(maxsize=1)
@@ -32,7 +32,10 @@ def _task_config(task_key: str, output_dir: str, prior_context: str) -> dict:
     if task_key not in config:
         raise KeyError(f"Task config not found for: {task_key}")
     task = dict(config[task_key])
-    task["description"] = task["description"].format(output_dir=output_dir).strip()
+    description = task["description"].format(output_dir=output_dir).strip()
+    if prior_context:
+        description = f"{description}\n\n{prior_context.strip()}"
+    task["description"] = description
     task["output_file"] = task["output_file"].format(output_dir=output_dir)
     return task
 
@@ -41,6 +44,22 @@ def task_requirements(agent, output_dir: str, previous_doc_path: str | None = No
     return Task(
         **_task_config(
             "requirements",
+            output_dir,
+            _prior_context_note(previous_doc_path, previous_review_path),
+        ),
+        agent=agent,
+    )
+
+
+def task_prioritize_review_fixes(
+    agent,
+    output_dir: str,
+    previous_doc_path: str | None = None,
+    previous_review_path: str | None = None,
+):
+    return Task(
+        **_task_config(
+            "prioritize_review_fixes",
             output_dir,
             _prior_context_note(previous_doc_path, previous_review_path),
         ),

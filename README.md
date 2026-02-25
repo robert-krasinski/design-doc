@@ -85,6 +85,7 @@ Populate these files before running for best results:
 - `RuntimeError: OPENAI_API_BASE is not set for preflight tool-calling check.`  
   Set `OPENAI_API_BASE` (or `LOCAL_LLM_BASE_URL`) so the preflight can target
   a tool-capable server.
-- QA fails with “Previous QA report not found for this run”  
-  The run expects `outputs/review_report.json` to exist for continuity.
-  Run once to generate it, or copy a prior report into `outputs/`.
+- First run has no prior QA report input  
+  This is supported. The QA harness will focus on the generated `design_doc.md`
+  (required sections, section artifacts, placeholders). On reruns, prior QA
+  reports are copied into the run `inputs/` folder for continuity checks.

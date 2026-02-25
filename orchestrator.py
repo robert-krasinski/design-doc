@@ -1,4 +1,7 @@
+import json
+import logging
 import os
+from pathlib import Path
 
 from crewai import Crew, LLM, Process
 from openai import OpenAI
@@ -6,6 +9,7 @@ from openai import OpenAI
 from crew.agents import (
     data_api_designer,
     editor_integrator,
+    prioritizer_agent,
     product_scope_analyst,
     security_reviewer,
     solution_architect,
@@ -15,10 +19,12 @@ from crew.tasks import (
     task_architecture,
     task_data_api,
     task_integrate,
+    task_prioritize_review_fixes,
     task_requirements,
     task_security,
     task_sre,
 )
+from priority_plan import baseline_priority_plan, load_and_normalize_priority_plan, write_priority_plan
 
 
 def build_llm() -> LLM:
@@ -60,10 +66,74 @@ def preflight_tool_calling_check() -> None:
         )
 
 
+def _run_tasks_with_crew(agents: list[object], tasks: list[object]) -> None:
+    crew = Crew(
+        agents=agents,
+        tasks=tasks,
+        process=Process.sequential,
+        verbose=True,
+        tracing=True,
+    )
+    crew.kickoff()
+
+
+def _log_prior_review_state(root: Path, output_dir: str) -> None:
+    logger = logging.getLogger(__name__)
+    prior_review_path = root / output_dir / "inputs" / "previous_review_report.json"
+    if not prior_review_path.exists():
+        logger.info("Prior review input missing: %s", str(prior_review_path))
+        return
+    size = prior_review_path.stat().st_size
+    try:
+        data = json.loads(prior_review_path.read_text(encoding="utf-8"))
+        sections = [
+            issue.get("section")
+            for issue in data.get("issues", [])
+            if isinstance(issue, dict) and isinstance(issue.get("section"), str)
+        ]
+        logger.info(
+            "Prior review input found: path=%s size=%s parsed=true issue_sections=%s",
+            str(prior_review_path),
+            size,
+            sections,
+        )
+    except json.JSONDecodeError as exc:
+        logger.info(
+            "Prior review input found: path=%s size=%s parsed=false error=%s",
+            str(prior_review_path),
+            size,
+            exc,
+        )
+
+
+def _ensure_valid_priority_plan(root: Path, output_dir: str) -> dict:
+    logger = logging.getLogger(__name__)
+    plan_path = root / output_dir / "priority_plan.json"
+    data, error = load_and_normalize_priority_plan(plan_path)
+    if data is None:
+        fallback_reason = f"Priority plan fallback: {error or 'unknown validation error'}"
+        data = baseline_priority_plan(fallback_reason)
+        write_priority_plan(plan_path, data)
+        logger.warning("Priority plan invalid; wrote baseline fallback: %s path=%s", fallback_reason, str(plan_path))
+        return data
+
+    write_priority_plan(plan_path, data)
+    logger.info(
+        "Priority plan validated: path=%s status=%s selected=%s deferred=%s",
+        str(plan_path),
+        data.get("status"),
+        data.get("selected_headings"),
+        data.get("deferred_headings"),
+    )
+    return data
+
+
 def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_path: str | None) -> None:
     # Build agents and tasks from config-driven definitions.
+    root = Path(__file__).resolve().parent
     llm = build_llm()
     agents = {
+        "prioritizer": prioritizer_agent(llm=llm),
         "product": product_scope_analyst(llm=llm),
         "arch": solution_architect(llm=llm),
         "data": data_api_designer(llm=llm),
@@ -72,7 +142,10 @@ def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_pat
         "edit": editor_integrator(llm=llm),
     }
 
-    tasks = [
+    prioritizer_task = task_prioritize_review_fixes(
+        agents["prioritizer"], output_dir, previous_doc_path, previous_review_path
+    )
+    remaining_tasks = [
         task_requirements(agents["product"], output_dir, previous_doc_path, previous_review_path),
         task_architecture(agents["arch"], output_dir, previous_doc_path, previous_review_path),
         task_data_api(agents["data"], output_dir, previous_doc_path, previous_review_path),
@@ -81,12 +154,29 @@ def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_pat
         task_integrate(agents["edit"], output_dir, previous_doc_path, previous_review_path),
     ]
 
-    crew = Crew(
-        agents=list(agents.values()),
-        tasks=tasks,
-        process=Process.sequential,
-        verbose=True,
-        tracing=True,
-    )
+    logger = logging.getLogger(__name__)
 
-    crew.kickoff()
+    _log_prior_review_state(root, output_dir)
+    try:
+        _run_tasks_with_crew([agents["prioritizer"]], [prioritizer_task])
+    except Exception as exc:
+        plan_path = root / output_dir / "priority_plan.json"
+        fallback_reason = f"Prioritizer task failed; using baseline fallback: {type(exc).__name__}: {exc}"
+        write_priority_plan(plan_path, baseline_priority_plan(fallback_reason))
+        logger.warning(
+            "Prioritizer task failed; wrote baseline priority plan and continuing: path=%s error=%s",
+            str(plan_path),
+            exc,
+        )
+    _ensure_valid_priority_plan(root, output_dir)
+    _run_tasks_with_crew(
+        [
+            agents["product"],
+            agents["arch"],
+            agents["data"],
+            agents["sec"],
+            agents["sre"],
+            agents["edit"],
+        ],
+        remaining_tasks,
+    )

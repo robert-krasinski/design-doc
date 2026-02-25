@@ -1,6 +1,63 @@
+prioritize_review_fixes:
+  description: |-
+    Review the current run folder’s prior QA artifacts and produce a strict JSON prioritization plan for this run. The goal is convergence across reruns: focus on only 2 high-impact QA headings per run, defer the rest, and reduce churn.
+
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `read_file("{output_dir}/inputs/previous_review_report.json")`.
+    3. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")` if present.
+    4. Base `source_review_found` and `source_review_valid` on the content read from `{output_dir}/inputs/previous_review_report.json`.
+
+    Input expectations:
+    - Previous QA report schema is expected to be JSON with `status` and `issues` array.
+    - Each issue may include `section`, `issue`, and `fix`.
+    - Use exact `issues[].section` values as candidate headings. Do not rename headings.
+
+    Selection rules (strict):
+    - De-duplicate candidate headings while preserving first occurrence order.
+    - Treat non-document/meta sections (for example `Inputs` or file paths) as non-actionable and do not select them as headings.
+    - Rank headings using this priority order first, then preserve report order for unknown headings:
+      - Problem Statement
+      - Goals
+      - Non-Goals
+      - Context & Constraints
+      - Architecture Overview
+      - Data Design
+      - API / Interface Contracts
+      - Non-Functional Requirements
+      - Risks & Mitigations
+      - Rollout Plan
+      - Test Strategy
+      - Decision Log
+      - Prior QA Report Review
+      - Assumptions
+    - Select exactly 2 headings when 2 or more unique actionable headings exist.
+    - If fewer than 2 unique actionable headings exist, select all available headings and do not invent more.
+    - If `inputs/previous_review_report.json` is missing, empty, or invalid JSON, emit a baseline fallback plan with no selected headings and status `baseline_no_prior_review`.
+
+    Output format (strict JSON only, no Markdown):
+    - `source_review_found`: boolean
+    - `source_review_valid`: boolean
+    - `status`: `prioritized` or `baseline_no_prior_review`
+    - `selected_headings`: array of strings (exact QA heading names)
+    - `deferred_headings`: array of strings
+    - `rationale`: array of short strings explaining why selected headings were prioritized
+    - `related_change_rule`: string set to: "Non-priority sections may be changed only when directly required by selected priority fixes or consistency with current inputs."
+    - `notes`: array of strings
+    - Return raw JSON only (no Markdown, no code fences, no backticks).
+  expected_output: "JSON prioritization plan with selected_headings/deferred_headings."
+  output_file: "{output_dir}/priority_plan.json"
+
 requirements:
   description: |-
-    Read inputs from `inputs/context.md` and `inputs/constraints.yaml`. Also read `/inputs/previous_design_doc.md` and `inputs/previous_review_report.json` from the current run folder if present. Produce a Markdown section following the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+    Read inputs from the current run folder’s `inputs/` directory (the same run folder where outputs are written), e.g., `outputs/YYYY-MM-DD/run_*/inputs/context.md` and `outputs/YYYY-MM-DD/run_*/inputs/constraints.yaml`. Also read `outputs/YYYY-MM-DD/run_*/inputs/previous_design_doc.md` and `outputs/YYYY-MM-DD/run_*/inputs/previous_review_report.json` from the current run folder if present. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Produce a Markdown section following the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Priority behavior (strict):
+    - This task owns headings: `Problem Statement`, `Goals`, `Non-Goals`, and this section file’s `Assumptions`.
+    - If `{output_dir}/priority_plan.json` selects any owned headings, prioritize fixing those first.
+    - If no owned headings are selected, preserve prior content from `inputs/previous_design_doc.md` where possible and avoid substantive changes unless directly required by selected priorities or current inputs.
+    - Do not delete previously present required headings owned by this task.
+    - Non-priority changes are allowed only when directly related to selected priority fixes or consistency with current inputs.
 
     Template:
     ## Problem Statement
@@ -16,7 +73,14 @@ requirements:
 
 architecture:
   description: |-
-    Using the inputs, draft an Architecture Overview with components, boundaries, and a Mermaid diagram (C4-ish L1/L2). Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+    Using the inputs, draft an Architecture Overview with components, boundaries, and a Mermaid diagram (C4-ish L1/L2). Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Priority behavior (strict):
+    - This task owns headings: `Architecture Overview`, `Components`, `Trade-offs`, `Diagram`, and this section file’s `Assumptions`.
+    - If `{output_dir}/priority_plan.json` selects `Architecture Overview`, prioritize architecture fixes first.
+    - If no owned headings are selected, preserve prior content from `inputs/previous_design_doc.md` where possible and avoid substantive changes unless directly required by selected priorities or current inputs.
+    - Do not delete previously present required headings owned by this task.
+    - Non-priority changes are allowed only when directly related to selected priority fixes or consistency with current inputs.
 
     Template:
     ## Architecture Overview
@@ -39,7 +103,14 @@ architecture:
 
 data_api:
   description: |-
-    Draft Data Design and API/Interface Contracts. Provide entities, flows, storage/retention, and an API table or a minimal OpenAPI-like snippet. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+    Draft Data Design and API/Interface Contracts. Provide entities, flows, storage/retention, and an API table or a minimal OpenAPI-like snippet. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Priority behavior (strict):
+    - This task owns headings: `Data Design`, `Entities`, `Data Flows`, `Storage/Retention`, `API / Interface Contracts`, and this section file’s `Assumptions`.
+    - If `{output_dir}/priority_plan.json` selects `Data Design` or `API / Interface Contracts`, prioritize those fixes first.
+    - If no owned headings are selected, preserve prior content from `inputs/previous_design_doc.md` where possible and avoid substantive changes unless directly required by selected priorities or current inputs.
+    - Do not delete previously present required headings owned by this task.
+    - Non-priority changes are allowed only when directly related to selected priority fixes or consistency with current inputs.
 
     Template:
     ## Data Design
@@ -63,7 +134,14 @@ data_api:
 
 security:
   description: |-
-    Perform a security/compliance review: threats, risks, mitigations. Reference constraints if available. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+    Perform a security/compliance review: threats, risks, mitigations. Reference constraints if available. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Priority behavior (strict):
+    - This task owns headings: `Risks & Mitigations`, `Security Controls`, and this section file’s `Assumptions`.
+    - If `{output_dir}/priority_plan.json` selects `Risks & Mitigations`, prioritize those fixes first.
+    - If no owned headings are selected, preserve prior content from `inputs/previous_design_doc.md` where possible and avoid substantive changes unless directly required by selected priorities or current inputs.
+    - Do not delete previously present required headings owned by this task.
+    - Non-priority changes are allowed only when directly related to selected priority fixes or consistency with current inputs.
 
     Template:
     ## Risks & Mitigations
@@ -79,7 +157,14 @@ security:
 
 sre:
   description: |-
-    Define Non-Functional Requirements and Ops Plan: SLIs/SLOs, logging, alerting, runbooks. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+    Define Non-Functional Requirements and Ops Plan: SLIs/SLOs, logging, alerting, runbooks. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Priority behavior (strict):
+    - This task owns headings: `Non-Functional Requirements`, `Observability`, `Ops Runbooks`, and this section file’s `Assumptions`.
+    - If `{output_dir}/priority_plan.json` selects `Non-Functional Requirements`, prioritize those fixes first.
+    - If no owned headings are selected, preserve prior content from `inputs/previous_design_doc.md` where possible and avoid substantive changes unless directly required by selected priorities or current inputs.
+    - Do not delete previously present required headings owned by this task.
+    - Non-priority changes are allowed only when directly related to selected priority fixes or consistency with current inputs.
 
     Template:
     ## Non-Functional Requirements
@@ -99,11 +184,55 @@ sre:
 
 integrate:
   description: |-
-    Read all files in `{output_dir}/sections/` and integrate them into a single design doc. Use `templates/design_doc.md` as the base structure. Add missing sections: Context & Constraints, Rollout Plan, Test Strategy, Decision Log, Assumptions. Ensure consistent terminology. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions. Add a final "Consistency Checklist" section with bullets: terminology consistency, API naming, component naming.
+    Read all files in `{output_dir}/sections/` and integrate them into a single design doc. This is a merge task first, not a meta/status report task. Read `{output_dir}/priority_plan.json` if present and use it to prioritize which parts are refined this run, but do not omit non-priority section content. Use `templates/design_doc.md` as the base structure. Ensure consistent terminology. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under the single top-level Assumptions section. Add a final "Consistency Checklist" section with bullets: terminology consistency, API naming, component naming.
+
+    Integration procedure (strict, follow in order):
+    1. Read every file in `{output_dir}/sections/`.
+    2. Extract the content under each heading from those section files.
+    3. Build the final document using `templates/design_doc.md` headings as the target structure.
+    4. For each template heading with source content in a section file, copy or condense that source content into the matching final heading.
+    5. Only after core sections are populated, add/finalize integrator-owned sections: `Context & Constraints`, `Rollout Plan`, `Test Strategy`, `Decision Log`, `Prior QA Report Review`, `Consistency Checklist`, and the single top-level `Assumptions`.
+
+    Section mapping (strict):
+    - `Problem Statement`, `Goals`, `Non-Goals` <- `{output_dir}/sections/requirements.md`
+    - `Architecture Overview` <- `{output_dir}/sections/architecture.md`
+    - `Data Design`, `API / Interface Contracts` <- `{output_dir}/sections/data_api.md`
+    - `Non-Functional Requirements` <- `{output_dir}/sections/nfrs_ops.md`
+    - `Risks & Mitigations` <- `{output_dir}/sections/security.md`
+    - Summarize supporting headings into the corresponding template sections instead of discarding them, including: `Components`, `Trade-offs`, `Diagram`, `Entities`, `Data Flows`, `Storage/Retention`, `Security Controls`, `Observability`, and `Ops Runbooks`.
+
+    Priority behavior (strict):
+    - Integrator owns/finalizes headings: `Context & Constraints`, `Rollout Plan`, `Test Strategy`, `Decision Log`, `Prior QA Report Review`, top-level `Assumptions`, and `Consistency Checklist`.
+    - Priority selection controls what is refined first this run; it does not allow omission of existing section content from the final integrated document.
+    - If priority headings are not owned by the integrator, preserve previously present non-priority sections from `inputs/previous_design_doc.md` where possible and avoid unrelated rewrites.
+    - Missing non-priority content in current section files should be reconstructed from `inputs/previous_design_doc.md` when possible instead of being omitted.
+    - Non-priority sections may receive minimal edits, but they must still appear in the final document and retain source/previous content.
+    - Non-priority changes are allowed only when directly related to selected priority fixes or consistency with current inputs.
+
+    Do not do the following (strict):
+    - Do not output a document that only contains meta/integrator sections while omitting available content from `{output_dir}/sections/*.md`.
+    - Do not remove a template section if source content exists for it in any section file.
+    - Do not replace core section summaries with status text about missing `priority_plan.json` or missing prior review.
+    - Do not duplicate top-level `## Assumptions`; produce exactly one top-level `## Assumptions` section in the final document.
+
+    Summarization rules:
+    - Summarize section-file content into the final document, preserving concrete facts, tables, and key bullets when needed.
+    - If a section file already contains a required heading, prefer its content over inventing new text.
+    - Merge assumptions from section files and integrator notes into one concise top-level `## Assumptions` section.
+
+    Final self-check before returning (mandatory):
+    - Confirm the final doc includes all headings from `templates/design_doc.md`.
+    - Confirm content from each available file in `{output_dir}/sections/` is represented in the final doc.
+    - Confirm exactly one top-level `## Assumptions` section.
+    - Confirm `## Prior QA Report Review` is present.
+    - Confirm no core section is replaced only by meta/status text when source content exists.
 
     Add a strict section:
     ## Prior QA Report Review
-    - State whether `inputs/previous_review_report.json` was reviewed.
+    - State whether the previous QA report (`outputs/YYYY-MM-DD/run_*/inputs/previous_review_report.json`) from the current run folder was reviewed.
+    - State whether `{output_dir}/priority_plan.json` was reviewed.
+    - List the selected priority headings from `{output_dir}/priority_plan.json` (or "No selected priorities" in baseline mode).
     - List at least 2 specific issues addressed (or "No actionable issues" if none).
+    - List deferred headings (or "None").
   expected_output: "Complete design doc in Markdown."
   output_file: "{output_dir}/design_doc.md"

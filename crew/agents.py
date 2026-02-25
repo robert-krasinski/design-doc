@@ -32,6 +32,15 @@ def product_scope_analyst(llm=None):
     )
 
 
+def prioritizer_agent(llm=None):
+    return Agent(
+        **_agent_config("prioritizer_agent"),
+        tools=[read_file, list_dir],
+        llm=llm,
+        verbose=False,
+    )
+
+
 def solution_architect(llm=None):
     return Agent(
         **_agent_config("solution_architect"),
