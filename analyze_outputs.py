@@ -3,8 +3,10 @@ import csv
 import hashlib
 import json
 import sys
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -536,12 +538,236 @@ def _print_csv(result: dict[str, Any]) -> None:
         writer.writerow({k: row.get(k) for k in fieldnames})
 
 
+def _json_pretty(value: Any) -> str:
+    return json.dumps(value, indent=2)
+
+
+def _html_table(headers: list[str], rows: list[list[str]]) -> str:
+    head = "".join(f"<th>{escape(h)}</th>" for h in headers)
+    body_rows = []
+    for row in rows:
+        body_rows.append("<tr>" + "".join(f"<td>{escape(cell)}</td>" for cell in row) + "</tr>")
+    return (
+        "<table>"
+        "<thead><tr>"
+        f"{head}"
+        "</tr></thead>"
+        "<tbody>"
+        + "".join(body_rows)
+        + "</tbody></table>"
+    )
+
+
+def _render_html_report(result: dict[str, Any]) -> str:
+    created_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    run_headers = ["run_id", "seq", "idx", "qa", "issues", "completion%", "delta", "conv"]
+    run_rows: list[list[str]] = []
+    for row in result.get("run_metrics", []):
+        run_rows.append(
+            [
+                str(row.get("run_id") or ""),
+                str(row.get("sequence_id") or ""),
+                str(row.get("sequence_index") or ""),
+                str(row.get("qa_status") or ""),
+                "" if row.get("qa_issue_count") is None else str(row.get("qa_issue_count")),
+                f'{float(row.get("required_sections_completion_pct", 0.0)):.1f}',
+                "" if row.get("qa_issue_delta_vs_parent") is None else f'{int(row["qa_issue_delta_vs_parent"]):+d}',
+                str(row.get("convergence_label") or ""),
+            ]
+        )
+
+    seq_headers = [
+        "sequence_id",
+        "runs",
+        "final_qa",
+        "best_issues",
+        "final_issues",
+        "best_completion%",
+        "oscillation",
+        "converged",
+        "reason",
+    ]
+    seq_rows: list[list[str]] = []
+    for seq in result.get("sequence_summaries", []):
+        seq_rows.append(
+            [
+                str(seq.get("sequence_id") or ""),
+                str(seq.get("length") or ""),
+                str(seq.get("final_qa_status") or ""),
+                "" if seq.get("best_qa_issue_count") is None else str(seq.get("best_qa_issue_count")),
+                "" if seq.get("final_qa_issue_count") is None else str(seq.get("final_qa_issue_count")),
+                f'{float(seq.get("best_completion_pct", 0.0)):.1f}',
+                str(bool(seq.get("oscillation_detected"))),
+                str(bool(seq.get("converged"))),
+                str(seq.get("convergence_reason") or ""),
+            ]
+        )
+
+    meta_rows = [
+        ["Created", created_at],
+        ["Outputs dir", str(result.get("outputs_dir") or "")],
+        ["Run count", str(result.get("run_count") or 0)],
+        ["Sequence count", str(result.get("sequence_count") or 0)],
+    ]
+
+    metadata_json = _json_pretty(
+        {
+            "outputs_dir": result.get("outputs_dir"),
+            "run_count": result.get("run_count"),
+            "sequence_count": result.get("sequence_count"),
+        }
+    )
+    sequence_json = _json_pretty(result.get("sequence_summaries", []))
+    run_metrics_json = _json_pretty(result.get("run_metrics", []))
+    pretty_json = _json_pretty(result)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analyze Outputs Report</title>
+  <style>
+    :root {{
+      --bg: #f7f4ee;
+      --panel: #fffdf8;
+      --ink: #1f1a14;
+      --muted: #6b6258;
+      --line: #d7d0c5;
+      --accent: #0f766e;
+    }}
+    body {{
+      margin: 0;
+      padding: 24px;
+      background: radial-gradient(circle at top left, #efe7d8, var(--bg) 45%);
+      color: var(--ink);
+      font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }}
+    h1, h2 {{
+      margin: 0 0 12px;
+      line-height: 1.2;
+    }}
+    h1 {{ font-size: 24px; }}
+    h2 {{ font-size: 18px; margin-top: 24px; }}
+    .muted {{ color: var(--muted); }}
+    .panel {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }}
+    th, td {{
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      white-space: nowrap;
+    }}
+    th {{
+      position: sticky;
+      top: 0;
+      background: #fbf7ef;
+      color: #40352a;
+      font-weight: 700;
+    }}
+    tr:hover td {{
+      background: #faf6ee;
+    }}
+    code, pre {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }}
+    pre {{
+      margin: 0;
+      white-space: pre;
+      background: #1f2328;
+      color: #f4f7fb;
+      border-radius: 10px;
+      padding: 14px;
+      overflow-x: auto;
+    }}
+    .meta-table table {{ min-width: 0; }}
+    .meta-table th, .meta-table td {{ white-space: normal; }}
+    .meta-table th {{ width: 180px; }}
+    details > summary {{
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }}
+    .json-block {{
+      margin-top: 12px;
+    }}
+    .json-block details {{
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fcfaf5;
+    }}
+    .json-block details + details {{
+      margin-top: 10px;
+    }}
+  </style>
+</head>
+<body>
+  <h1>Analyze Outputs Report</h1>
+  <p class="muted">Generated {escape(created_at)}</p>
+
+  <section class="panel meta-table">
+    <h2>Summary</h2>
+    {_html_table(["Field", "Value"], meta_rows)}
+  </section>
+
+  <section class="panel">
+    <h2>Run Metrics</h2>
+    {_html_table(run_headers, run_rows) if run_rows else "<p>No runs found.</p>"}
+  </section>
+
+  <section class="panel">
+    <h2>Sequence Summaries</h2>
+    {_html_table(seq_headers, seq_rows) if seq_rows else "<p>No sequences found.</p>"}
+  </section>
+
+  <section class="panel">
+    <h2>Human Readable JSON</h2>
+    <p class="muted">JSON is split into top-level sections and collapsed by default to avoid a wall of text.</p>
+    <div class="json-block">
+      <details>
+        <summary>Metadata JSON</summary>
+        <pre>{escape(metadata_json)}</pre>
+      </details>
+      <details>
+        <summary>Sequence Summaries JSON ({len(result.get("sequence_summaries", []))} entries)</summary>
+        <pre>{escape(sequence_json)}</pre>
+      </details>
+      <details>
+        <summary>Run Metrics JSON ({len(result.get("run_metrics", []))} entries)</summary>
+        <pre>{escape(run_metrics_json)}</pre>
+      </details>
+      <details>
+        <summary>Full Raw JSON</summary>
+        <pre>{escape(pretty_json)}</pre>
+      </details>
+    </div>
+  </section>
+</body>
+</html>
+"""
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Analyze design-doc output runs for convergence and completion.")
     parser.add_argument("--outputs-dir", help="Base outputs directory (default: design-doc/outputs next to this script)")
     parser.add_argument("--date", help="Optional date folder filter (YYYY-MM-DD)")
-    parser.add_argument("--format", choices=["table", "json", "csv"], default="table")
-    parser.add_argument("--write", help="Optional path to write JSON results")
+    parser.add_argument("--format", choices=["table", "json", "csv", "html"], default="table")
+    parser.add_argument("--write", help="Optional path to write human-readable JSON results")
+    parser.add_argument("--write-html", help="Optional path to write an HTML report")
     parser.add_argument("--plateau-window", type=int, default=2)
     parser.add_argument("--convergence-threshold", type=float, default=0.75)
     args = parser.parse_args(argv)
@@ -556,12 +782,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.write:
         out_path = Path(args.write)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
+        out_path.write_text(_json_pretty(result) + "\n", encoding="utf-8")
+
+    html_report = None
+    if args.write_html or args.format == "html":
+        html_report = _render_html_report(result)
+
+    if args.write_html:
+        html_path = Path(args.write_html)
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        html_path.write_text(html_report or _render_html_report(result), encoding="utf-8")
 
     if args.format == "json":
-        print(json.dumps(result, indent=2))
+        print(_json_pretty(result))
     elif args.format == "csv":
         _print_csv(result)
+    elif args.format == "html":
+        print(html_report or _render_html_report(result))
     else:
         _print_table(result)
     return 0
