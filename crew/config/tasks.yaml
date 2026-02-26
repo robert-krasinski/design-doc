@@ -12,6 +12,8 @@ prioritize_review_fixes:
     - Previous QA report schema is expected to be JSON with `status` and `issues` array.
     - Each issue may include `section`, `issue`, and `fix`.
     - Use exact `issues[].section` values as candidate headings. Do not rename headings.
+    - The prior QA report's own `status` value may be `FAIL` and is still valid input for prioritization.
+    - Treat the prior review as valid when `read_file("{output_dir}/inputs/previous_review_report.json")` returns parseable JSON with an `issues` array.
 
     Selection rules (strict):
     - De-duplicate candidate headings while preserving first occurrence order.
@@ -34,6 +36,20 @@ prioritize_review_fixes:
     - Select exactly 2 headings when 2 or more unique actionable headings exist.
     - If fewer than 2 unique actionable headings exist, select all available headings and do not invent more.
     - If `inputs/previous_review_report.json` is missing, empty, or invalid JSON, emit a baseline fallback plan with no selected headings and status `baseline_no_prior_review`.
+    - If the file exists and parses as JSON, do not emit `baseline_no_prior_review` even if the QA report `status` is `FAIL`.
+    - If the file parses and contains an `issues` array but zero actionable headings after filtering, return `status: "prioritized"` with `selected_headings: []` and explain that no actionable headings were found.
+
+    Field consistency rules (strict):
+    - `source_review_valid: false` is allowed only when the prior review file is missing, empty, or unparseable JSON.
+    - If the prior review file parses as JSON with an `issues` array, set `source_review_found: true` and `source_review_valid: true`.
+    - If `source_review_valid` is `true`, set `status` to `prioritized`.
+    - If `status` is `baseline_no_prior_review`, set `source_review_valid` to `false`.
+    - Before writing output, verify `source_review_found`, `source_review_valid`, `status`, and `selected_headings` are consistent with these rules.
+
+    Example (rerun with valid prior QA report whose status is FAIL):
+    - Prior input JSON:
+      `{{"status":"FAIL","issues":[{{"section":"Context & Constraints","issue":"Missing required section","fix":"Add section"}},{{"section":"Rollout Plan","issue":"Missing required section","fix":"Add section"}}]}}`
+    - Valid output must set `source_review_found: true`, `source_review_valid: true`, `status: "prioritized"`, and select the two headings above.
 
     Output format (strict JSON only, no Markdown):
     - `source_review_found`: boolean

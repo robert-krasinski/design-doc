@@ -67,7 +67,7 @@ if __name__ == "__main__":
         prev_doc_path,
         prev_review_path,
         manifest_path,
-        max_runs=3,
+        max_runs=10,
         crew_enabled=crew_enabled,
     )
 
