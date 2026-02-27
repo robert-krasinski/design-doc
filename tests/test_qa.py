@@ -84,6 +84,60 @@ def _write_design_doc(
     (out_dir / "design_doc.md").write_text("\n\n".join(chunks) + "\n", encoding="utf-8")
 
 
+def _build_critique_report(*, criterion_score: int = 85) -> dict:
+    section_by_key = {
+        "input_alignment_fidelity": "Context & Constraints",
+        "problem_scope_clarity": "Context & Constraints",
+        "architecture_design_quality": "Architecture Overview",
+        "component_interface_specificity": "API / Interface Contracts",
+        "data_design_quality": "Data Design",
+        "security_risk_coverage": "Risks & Mitigations",
+        "nfrs_operability_quality": "Non-Functional Requirements",
+        "delivery_readiness": "Rollout Plan",
+        "testability_validation_strategy": "Test Strategy",
+        "decision_traceability_and_assumptions": "Decision Log",
+        "document_coherence_and_consistency": "Prior QA Report Review",
+    }
+    criteria = []
+    for key, label, weight in qa.CRITIQUE_CRITERIA_SPEC:
+        criteria.append(
+            {
+                "key": key,
+                "label": label,
+                "weight_pct": weight,
+                "score": criterion_score,
+                "primary_section": section_by_key[key],
+                "strengths": ["Grounded content"],
+                "gaps": ["Minor refinements possible"],
+                "evidence": ["Observed required section content"],
+                "recommended_actions": ["Add more implementation detail where useful."],
+            }
+        )
+    overall = qa._weighted_quality_score(criteria)
+    return {
+        "reviewer_role": "IT Super Architect",
+        "version": 1,
+        "document_path": "outputs/x/design_doc.md",
+        "scoring": {
+            "scale_min": 0,
+            "scale_max": 100,
+            "threshold_strictly_greater_than": 80,
+            "overall_quality_score": overall,
+            "quality_gate_passed": overall > 80,
+            "calculation": "weighted_average_rounded",
+        },
+        "criteria": criteria,
+        "top_strengths": ["Sections are present"],
+        "top_risks": ["Could improve specificity"],
+        "summary": "Fixture critique report.",
+    }
+
+
+def _write_critique_report(out_dir: Path, *, criterion_score: int = 85) -> None:
+    report = _build_critique_report(criterion_score=criterion_score)
+    (out_dir / "critique_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+
 def _run_qa_and_load(rel_output_dir: str) -> tuple[int, dict]:
     exit_code = qa.main(rel_output_dir)
     report = json.loads((ROOT / rel_output_dir / "review_report.json").read_text(encoding="utf-8"))
@@ -94,6 +148,7 @@ def test_first_run_missing_prior_review_focuses_on_missing_sections() -> None:
     out_dir, rel = _make_output_dir("test-qa-first-run-missing-sections")
     _write_valid_section_files(out_dir)
     _write_design_doc(out_dir, include_all_required=False)
+    _write_critique_report(out_dir)
 
     exit_code, report = _run_qa_and_load(rel)
 
@@ -109,21 +164,73 @@ def test_first_run_missing_prior_review_focuses_on_missing_sections() -> None:
     )
 
 
-def test_first_run_without_prior_review_can_pass() -> None:
+def test_first_run_without_prior_review_can_pass_with_quality_over_80() -> None:
     out_dir, rel = _make_output_dir("test-qa-first-run-pass")
+    _write_valid_section_files(out_dir)
+    _write_design_doc(out_dir, include_all_required=True)
+    _write_critique_report(out_dir, criterion_score=85)
+
+    exit_code, report = _run_qa_and_load(rel)
+
+    assert exit_code == 0
+    assert report["status"] == "PASS"
+    assert report["issues"] == []
+    assert report["quality"] == {
+        "source": "critique_report.json",
+        "score": 85,
+        "threshold_rule": ">80",
+        "passed": True,
+    }
+
+
+def test_quality_score_equal_80_fails_strict_threshold() -> None:
+    out_dir, rel = _make_output_dir("test-qa-quality-80-fails")
+    _write_valid_section_files(out_dir)
+    _write_design_doc(out_dir, include_all_required=True)
+    _write_critique_report(out_dir, criterion_score=80)
+
+    exit_code, report = _run_qa_and_load(rel)
+
+    assert exit_code == 1
+    assert report["status"] == "FAIL"
+    assert report["quality"]["score"] == 80
+    assert report["quality"]["passed"] is False
+    assert any("does not meet threshold >80" in issue["issue"] for issue in report["issues"])
+    assert any(issue["section"] == "Document" for issue in report["issues"])
+
+
+def test_missing_critique_report_fails_closed() -> None:
+    out_dir, rel = _make_output_dir("test-qa-missing-critique")
     _write_valid_section_files(out_dir)
     _write_design_doc(out_dir, include_all_required=True)
 
     exit_code, report = _run_qa_and_load(rel)
 
-    assert exit_code == 0
-    assert report == {"status": "PASS", "issues": []}
+    assert exit_code == 1
+    assert report["status"] == "FAIL"
+    assert report["quality"]["source"] == "critique_report.json"
+    assert report["quality"]["score"] is None
+    assert any("Critique report is missing or invalid JSON" in issue["issue"] for issue in report["issues"])
+
+
+def test_invalid_critique_report_json_fails_closed() -> None:
+    out_dir, rel = _make_output_dir("test-qa-invalid-critique-json")
+    _write_valid_section_files(out_dir)
+    _write_design_doc(out_dir, include_all_required=True)
+    (out_dir / "critique_report.json").write_text("{invalid json}", encoding="utf-8")
+
+    exit_code, report = _run_qa_and_load(rel)
+
+    assert exit_code == 1
+    assert report["status"] == "FAIL"
+    assert any("present but invalid JSON" in issue["issue"] for issue in report["issues"])
 
 
 def test_existing_empty_prior_review_still_fails() -> None:
     out_dir, rel = _make_output_dir("test-qa-empty-prior")
     _write_valid_section_files(out_dir)
     _write_design_doc(out_dir, include_all_required=True)
+    _write_critique_report(out_dir)
     (out_dir / "inputs" / "previous_review_report.json").write_text("", encoding="utf-8")
 
     exit_code, report = _run_qa_and_load(rel)
@@ -140,6 +247,7 @@ def test_existing_prior_review_requires_review_mention() -> None:
     out_dir, rel = _make_output_dir("test-qa-prior-review-mention")
     _write_valid_section_files(out_dir)
     _write_design_doc(out_dir, include_all_required=True, include_prior_review_phrase=False)
+    _write_critique_report(out_dir)
     (out_dir / "inputs" / "previous_review_report.json").write_text(
         json.dumps({"status": "FAIL", "issues": [{"section": "Rollout Plan"}]}, indent=2),
         encoding="utf-8",
@@ -164,6 +272,7 @@ def test_existing_prior_review_accepts_previous_review_report_wording() -> None:
         include_all_required=True,
         prior_review_body_override="The previous review report was reviewed and triaged.",
     )
+    _write_critique_report(out_dir)
     (out_dir / "inputs" / "previous_review_report.json").write_text(
         json.dumps({"status": "FAIL", "issues": [{"section": "Decision Log"}]}, indent=2),
         encoding="utf-8",
@@ -172,7 +281,9 @@ def test_existing_prior_review_accepts_previous_review_report_wording() -> None:
     exit_code, report = _run_qa_and_load(rel)
 
     assert exit_code == 0
-    assert report == {"status": "PASS", "issues": []}
+    assert report["status"] == "PASS"
+    assert report["issues"] == []
+    assert report["quality"]["passed"] is True
 
 
 def test_existing_prior_review_accepts_json_path_mention() -> None:
@@ -183,6 +294,7 @@ def test_existing_prior_review_accepts_json_path_mention() -> None:
         include_all_required=True,
         prior_review_body_override="Reviewed inputs/previous_review_report.json and used it for prioritization.",
     )
+    _write_critique_report(out_dir)
     (out_dir / "inputs" / "previous_review_report.json").write_text(
         json.dumps({"status": "FAIL", "issues": [{"section": "Test Strategy"}]}, indent=2),
         encoding="utf-8",
@@ -191,4 +303,6 @@ def test_existing_prior_review_accepts_json_path_mention() -> None:
     exit_code, report = _run_qa_and_load(rel)
 
     assert exit_code == 0
-    assert report == {"status": "PASS", "issues": []}
+    assert report["status"] == "PASS"
+    assert report["issues"] == []
+    assert report["quality"]["passed"] is True

@@ -68,6 +68,15 @@ requirements:
   description: |-
     Read inputs from the current run folder’s `inputs/` directory (the same run folder where outputs are written), e.g., `outputs/YYYY-MM-DD/run_*/inputs/context.md` and `outputs/YYYY-MM-DD/run_*/inputs/constraints.yaml`. Also read `outputs/YYYY-MM-DD/run_*/inputs/previous_design_doc.md` and `outputs/YYYY-MM-DD/run_*/inputs/previous_review_report.json` from the current run folder if present. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Produce a Markdown section following the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
 
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `read_file("{output_dir}/inputs/context.md")`.
+    3. Call `read_file("{output_dir}/inputs/constraints.yaml")`.
+    4. Call `read_file("{output_dir}/inputs/repo_manifest.txt")` if present.
+    5. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")` and `read_file("{output_dir}/inputs/previous_review_report.json")` if present.
+    6. Optionally call `read_file("{output_dir}/priority_plan.json")` if present.
+    7. Do not draft output before reading the run-scoped input files above via tools.
+
     Priority behavior (strict):
     - This task owns headings: `Problem Statement`, `Goals`, `Non-Goals`, and this section file’s `Assumptions`.
     - If `{output_dir}/priority_plan.json` selects any owned headings, prioritize fixing those first.
@@ -90,6 +99,15 @@ requirements:
 architecture:
   description: |-
     Using the inputs, draft an Architecture Overview with components, boundaries, and a Mermaid diagram (C4-ish L1/L2). Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `read_file("{output_dir}/inputs/context.md")`.
+    3. Call `read_file("{output_dir}/inputs/constraints.yaml")`.
+    4. Call `read_file("{output_dir}/inputs/repo_manifest.txt")` if present.
+    5. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")` and `read_file("{output_dir}/inputs/previous_review_report.json")` if present.
+    6. Optionally call `read_file("{output_dir}/priority_plan.json")` if present.
+    7. Do not draft output before reading the run-scoped input files above via tools.
 
     Priority behavior (strict):
     - This task owns headings: `Architecture Overview`, `Components`, `Trade-offs`, `Diagram`, and this section file’s `Assumptions`.
@@ -120,6 +138,15 @@ architecture:
 data_api:
   description: |-
     Draft Data Design and API/Interface Contracts. Provide entities, flows, storage/retention, and an API table or a minimal OpenAPI-like snippet. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `read_file("{output_dir}/inputs/context.md")`.
+    3. Call `read_file("{output_dir}/inputs/constraints.yaml")`.
+    4. Call `read_file("{output_dir}/inputs/repo_manifest.txt")` if present.
+    5. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")` and `read_file("{output_dir}/inputs/previous_review_report.json")` if present.
+    6. Optionally call `read_file("{output_dir}/priority_plan.json")` if present.
+    7. Do not draft output before reading the run-scoped input files above via tools.
 
     Priority behavior (strict):
     - This task owns headings: `Data Design`, `Entities`, `Data Flows`, `Storage/Retention`, `API / Interface Contracts`, and this section file’s `Assumptions`.
@@ -152,6 +179,15 @@ security:
   description: |-
     Perform a security/compliance review: threats, risks, mitigations. Reference constraints if available. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
 
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `read_file("{output_dir}/inputs/context.md")`.
+    3. Call `read_file("{output_dir}/inputs/constraints.yaml")`.
+    4. Call `read_file("{output_dir}/inputs/repo_manifest.txt")` if present.
+    5. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")` and `read_file("{output_dir}/inputs/previous_review_report.json")` if present.
+    6. Optionally call `read_file("{output_dir}/priority_plan.json")` if present.
+    7. Do not draft output before reading the run-scoped input files above via tools.
+
     Priority behavior (strict):
     - This task owns headings: `Risks & Mitigations`, `Security Controls`, and this section file’s `Assumptions`.
     - If `{output_dir}/priority_plan.json` selects `Risks & Mitigations`, prioritize those fixes first.
@@ -174,6 +210,15 @@ security:
 sre:
   description: |-
     Define Non-Functional Requirements and Ops Plan: SLIs/SLOs, logging, alerting, runbooks. Read `{output_dir}/priority_plan.json` if present and use it to constrain edits. Use the strict template below. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under Assumptions.
+
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `read_file("{output_dir}/inputs/context.md")`.
+    3. Call `read_file("{output_dir}/inputs/constraints.yaml")`.
+    4. Call `read_file("{output_dir}/inputs/repo_manifest.txt")` if present.
+    5. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")` and `read_file("{output_dir}/inputs/previous_review_report.json")` if present.
+    6. Optionally call `read_file("{output_dir}/priority_plan.json")` if present.
+    7. Do not draft output before reading the run-scoped input files above via tools.
 
     Priority behavior (strict):
     - This task owns headings: `Non-Functional Requirements`, `Observability`, `Ops Runbooks`, and this section file’s `Assumptions`.
@@ -201,6 +246,15 @@ sre:
 integrate:
   description: |-
     Read all files in `{output_dir}/sections/` and integrate them into a single design doc. This is a merge task first, not a meta/status report task. Read `{output_dir}/priority_plan.json` if present and use it to prioritize which parts are refined this run, but do not omit non-priority section content. Use `templates/design_doc.md` as the base structure. Ensure consistent terminology. Use short paragraphs (2–4 sentences) and bullets for lists. If any details are not grounded in inputs, put them under the single top-level Assumptions section. Add a final "Consistency Checklist" section with bullets: terminology consistency, API naming, component naming.
+
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}/inputs")` to confirm available run-scoped inputs.
+    2. Call `list_dir("{output_dir}/sections")` to enumerate section files for this run.
+    3. Call `read_file("{output_dir}/sections/requirements.md")`, `read_file("{output_dir}/sections/architecture.md")`, `read_file("{output_dir}/sections/data_api.md")`, `read_file("{output_dir}/sections/security.md")`, and `read_file("{output_dir}/sections/nfrs_ops.md")` when present.
+    4. Call `read_file("templates/design_doc.md")`.
+    5. Call `read_file("{output_dir}/inputs/context.md")` and `read_file("{output_dir}/inputs/constraints.yaml")`.
+    6. Optionally call `read_file("{output_dir}/inputs/previous_design_doc.md")`, `read_file("{output_dir}/inputs/previous_review_report.json")`, and `read_file("{output_dir}/priority_plan.json")` if present.
+    7. Do not draft output before reading available run-scoped section files and required template/input files via tools.
 
     Integration procedure (strict, follow in order):
     1. Read every file in `{output_dir}/sections/`.
@@ -252,3 +306,96 @@ integrate:
     - List deferred headings (or "None").
   expected_output: "Complete design doc in Markdown."
   output_file: "{output_dir}/design_doc.md"
+
+critique_design_doc:
+  description: |-
+    Evaluate the quality of the current run's final integrated design document as an IT super architect reviewer. Read the current run outputs and the run-scoped initial input snapshots, then produce a strict JSON critique report with criterion-level scores and a weighted overall quality score (0-100). This task reviews the already-generated `{output_dir}/design_doc.md`; it does not rewrite the document. A required part of the score is explicit comparison of the design document against the initial input snapshots.
+
+    Mandatory first steps (use tools):
+    1. Call `list_dir("{output_dir}")` to confirm final artifacts exist.
+    2. Call `read_file("{output_dir}/design_doc.md")`.
+    3. Call `list_dir("{output_dir}/inputs")` to inspect run-scoped initial inputs.
+    4. Call `read_file("{output_dir}/inputs/context.md")`.
+    5. Call `read_file("{output_dir}/inputs/constraints.yaml")`.
+    6. Call `read_file("{output_dir}/inputs/repo_manifest.txt")` if present.
+    7. Optionally call `read_file("{output_dir}/priority_plan.json")` if present.
+    8. Optionally call `read_file("{output_dir}/inputs/previous_review_report.json")` if present.
+    9. Do not draft output before reading the final design doc and initial run inputs via tools.
+
+    Reviewer stance (strict):
+    - Act as a senior IT super architect reviewing implementation-readiness and architectural documentation quality.
+    - Score the document on the weighted criteria below using evidence from the document and the run-scoped initial inputs.
+    - Explicitly compare the design document against the initial inputs (`context.md`, `constraints.yaml`, and `repo_manifest.txt` when present) for fidelity, grounding, and constraint alignment.
+    - Be specific, actionable, and concise. No speculation.
+    - Use exact criterion keys and exact weights.
+    - Use valid QA headings for `primary_section` values.
+
+    Valid `primary_section` values (strict):
+    - Problem Statement
+    - Goals
+    - Non-Goals
+    - Context & Constraints
+    - Architecture Overview
+    - Data Design
+    - API / Interface Contracts
+    - Non-Functional Requirements
+    - Risks & Mitigations
+    - Rollout Plan
+    - Test Strategy
+    - Decision Log
+    - Prior QA Report Review
+    - Assumptions
+
+    Weighted rubric (strict, weights sum to 100):
+    - `input_alignment_fidelity` (20) -> primary_section: `Context & Constraints`
+      - Compare `design_doc.md` against initial run inputs and score fidelity to problem framing, constraints, and repository/process context.
+    - `problem_scope_clarity` (8) -> primary_section: `Context & Constraints`
+    - `architecture_design_quality` (12) -> primary_section: `Architecture Overview`
+    - `component_interface_specificity` (10) -> primary_section: `API / Interface Contracts`
+    - `data_design_quality` (8) -> primary_section: `Data Design`
+    - `security_risk_coverage` (8) -> primary_section: `Risks & Mitigations`
+    - `nfrs_operability_quality` (8) -> primary_section: `Non-Functional Requirements`
+    - `delivery_readiness` (8) -> primary_section: `Rollout Plan`
+    - `testability_validation_strategy` (8) -> primary_section: `Test Strategy`
+    - `decision_traceability_and_assumptions` (5) -> primary_section: `Decision Log`
+    - `document_coherence_and_consistency` (5) -> primary_section: `Prior QA Report Review`
+
+    Scoring guidance:
+    - 90-100: strong, specific, consistent, implementation-ready
+    - 75-89: acceptable with minor gaps
+    - 60-74: material gaps likely to cause churn/risk
+    - 0-59: insufficient for reliable implementation
+
+    Calculation (strict):
+    - Compute `overall_quality_score` as the rounded weighted average: `round(sum(score * weight_pct) / 100)`.
+    - Set `quality_gate_passed` to `true` only when `overall_quality_score` is strictly greater than 80.
+    - Use `threshold_strictly_greater_than: 80`.
+    - Ensure all arithmetic and booleans are internally consistent.
+
+    Output format (strict JSON only, no Markdown/code fences):
+    - `reviewer_role`: string exactly `"IT Super Architect"`
+    - `version`: integer `1`
+    - `document_path`: string (the current run design doc path)
+    - `scoring`: object with:
+      - `scale_min`: `0`
+      - `scale_max`: `100`
+      - `threshold_strictly_greater_than`: `80`
+      - `overall_quality_score`: integer `0..100`
+      - `quality_gate_passed`: boolean
+      - `calculation`: string exactly `"weighted_average_rounded"`
+    - `criteria`: array of 11 objects (exactly one per rubric criterion), each with:
+      - `key`: exact criterion key
+      - `label`: short human-readable label
+      - `weight_pct`: integer matching rubric
+      - `score`: integer `0..100`
+      - `primary_section`: one valid QA heading
+      - `strengths`: array of short strings
+      - `gaps`: array of short strings
+      - `evidence`: array of short strings
+      - `recommended_actions`: array of short strings
+    - `top_strengths`: array of short strings
+    - `top_risks`: array of short strings
+    - `summary`: short string summary
+    - Return raw JSON only.
+  expected_output: "JSON critique report with weighted quality score and criterion-level findings."
+  output_file: "{output_dir}/critique_report.json"

@@ -84,3 +84,12 @@ def editor_integrator(llm=None):
         llm=llm,
         verbose=False,
     )
+
+
+def critique_architect(llm=None):
+    return Agent(
+        **_agent_config("critique_architect"),
+        tools=[read_file, list_dir],
+        llm=llm,
+        verbose=False,
+    )

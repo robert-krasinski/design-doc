@@ -7,6 +7,7 @@ from crewai import Crew, LLM, Process
 from openai import OpenAI
 
 from crew.agents import (
+    critique_architect,
     data_api_designer,
     editor_integrator,
     prioritizer_agent,
@@ -17,6 +18,7 @@ from crew.agents import (
 )
 from crew.tasks import (
     task_architecture,
+    task_critique_design_doc,
     task_data_api,
     task_integrate,
     task_prioritize_review_fixes,
@@ -128,6 +130,34 @@ def _ensure_valid_priority_plan(root: Path, output_dir: str) -> dict:
     return data
 
 
+def run_product_scope_requirements_only(
+    output_dir: str,
+    previous_doc_path: str | None = None,
+    previous_review_path: str | None = None,
+    *,
+    llm: object | None = None,
+) -> None:
+    # Focused execution path used by tests/debugging to run only the product requirements task.
+    resolved_llm = llm if llm is not None else build_llm()
+    product_agent = product_scope_analyst(llm=resolved_llm)
+    requirements_task = task_requirements(product_agent, output_dir, previous_doc_path, previous_review_path)
+    _run_tasks_with_crew([product_agent], [requirements_task])
+
+
+def run_critique_only(
+    output_dir: str,
+    previous_doc_path: str | None = None,
+    previous_review_path: str | None = None,
+    *,
+    llm: object | None = None,
+) -> None:
+    # Focused execution path used by tests/debugging to run only the critique task on an existing design_doc.md.
+    resolved_llm = llm if llm is not None else build_llm()
+    critique_agent = critique_architect(llm=resolved_llm)
+    critique_task = task_critique_design_doc(critique_agent, output_dir, previous_doc_path, previous_review_path)
+    _run_tasks_with_crew([critique_agent], [critique_task])
+
+
 def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_path: str | None) -> None:
     # Build agents and tasks from config-driven definitions.
     root = Path(__file__).resolve().parent
@@ -140,12 +170,13 @@ def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_pat
         "sec": security_reviewer(llm=llm),
         "sre": sre_reviewer(llm=llm),
         "edit": editor_integrator(llm=llm),
+        "critique": critique_architect(llm=llm),
     }
 
     prioritizer_task = task_prioritize_review_fixes(
         agents["prioritizer"], output_dir, previous_doc_path, previous_review_path
     )
-    remaining_tasks = [
+    core_tasks = [
         task_requirements(agents["product"], output_dir, previous_doc_path, previous_review_path),
         task_architecture(agents["arch"], output_dir, previous_doc_path, previous_review_path),
         task_data_api(agents["data"], output_dir, previous_doc_path, previous_review_path),
@@ -153,6 +184,7 @@ def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_pat
         task_sre(agents["sre"], output_dir, previous_doc_path, previous_review_path),
         task_integrate(agents["edit"], output_dir, previous_doc_path, previous_review_path),
     ]
+    critique_task = task_critique_design_doc(agents["critique"], output_dir, previous_doc_path, previous_review_path)
 
     logger = logging.getLogger(__name__)
 
@@ -169,14 +201,23 @@ def run_crew(output_dir: str, previous_doc_path: str | None, previous_review_pat
             exc,
         )
     _ensure_valid_priority_plan(root, output_dir)
-    _run_tasks_with_crew(
-        [
-            agents["product"],
-            agents["arch"],
-            agents["data"],
-            agents["sec"],
-            agents["sre"],
-            agents["edit"],
-        ],
-        remaining_tasks,
-    )
+    try:
+        _run_tasks_with_crew(
+            [
+                agents["product"],
+                agents["arch"],
+                agents["data"],
+                agents["sec"],
+                agents["sre"],
+                agents["edit"],
+            ],
+            core_tasks,
+        )
+    except Exception as exc:
+        logger.warning("Core documentation tasks failed; continuing to QA with partial outputs: %s", exc)
+        return
+
+    try:
+        _run_tasks_with_crew([agents["critique"]], [critique_task])
+    except Exception as exc:
+        logger.warning("Critique task failed; continuing to QA without critique output: %s", exc)

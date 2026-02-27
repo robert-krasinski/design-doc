@@ -120,3 +120,16 @@ def task_integrate(agent, output_dir: str, previous_doc_path: str | None = None,
         ),
         agent=agent,
     )
+
+
+def task_critique_design_doc(
+    agent, output_dir: str, previous_doc_path: str | None = None, previous_review_path: str | None = None
+):
+    return Task(
+        **_task_config(
+            "critique_design_doc",
+            output_dir,
+            _prior_context_note(previous_doc_path, previous_review_path),
+        ),
+        agent=agent,
+    )

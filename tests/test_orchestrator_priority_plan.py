@@ -77,6 +77,7 @@ def test_run_crew_sanitizes_priority_plan_before_phase_b(monkeypatch: pytest.Mon
     monkeypatch.setattr(orchestrator, "security_reviewer", lambda llm=None: "sec")
     monkeypatch.setattr(orchestrator, "sre_reviewer", lambda llm=None: "sre")
     monkeypatch.setattr(orchestrator, "editor_integrator", lambda llm=None: "edit")
+    monkeypatch.setattr(orchestrator, "critique_architect", lambda llm=None: "critique")
     monkeypatch.setattr(orchestrator, "task_prioritize_review_fixes", lambda *args, **kwargs: "prioritizer_task")
     monkeypatch.setattr(orchestrator, "task_requirements", lambda *args, **kwargs: "requirements_task")
     monkeypatch.setattr(orchestrator, "task_architecture", lambda *args, **kwargs: "architecture_task")
@@ -84,6 +85,7 @@ def test_run_crew_sanitizes_priority_plan_before_phase_b(monkeypatch: pytest.Mon
     monkeypatch.setattr(orchestrator, "task_security", lambda *args, **kwargs: "security_task")
     monkeypatch.setattr(orchestrator, "task_sre", lambda *args, **kwargs: "sre_task")
     monkeypatch.setattr(orchestrator, "task_integrate", lambda *args, **kwargs: "integrate_task")
+    monkeypatch.setattr(orchestrator, "task_critique_design_doc", lambda *args, **kwargs: "critique_task")
 
     calls: list[int] = []
     plan_path = out_dir / "priority_plan.json"
@@ -104,7 +106,7 @@ def test_run_crew_sanitizes_priority_plan_before_phase_b(monkeypatch: pytest.Mon
 
     orchestrator.run_crew(output_dir, None, None)
 
-    assert calls == [1, 6]
+    assert calls == [1, 6, 1]
 
 
 def test_run_crew_prioritizer_failure_falls_back_and_continues(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -121,6 +123,7 @@ def test_run_crew_prioritizer_failure_falls_back_and_continues(monkeypatch: pyte
     monkeypatch.setattr(orchestrator, "security_reviewer", lambda llm=None: "sec")
     monkeypatch.setattr(orchestrator, "sre_reviewer", lambda llm=None: "sre")
     monkeypatch.setattr(orchestrator, "editor_integrator", lambda llm=None: "edit")
+    monkeypatch.setattr(orchestrator, "critique_architect", lambda llm=None: "critique")
     monkeypatch.setattr(orchestrator, "task_prioritize_review_fixes", lambda *args, **kwargs: "prioritizer_task")
     monkeypatch.setattr(orchestrator, "task_requirements", lambda *args, **kwargs: "requirements_task")
     monkeypatch.setattr(orchestrator, "task_architecture", lambda *args, **kwargs: "architecture_task")
@@ -128,6 +131,7 @@ def test_run_crew_prioritizer_failure_falls_back_and_continues(monkeypatch: pyte
     monkeypatch.setattr(orchestrator, "task_security", lambda *args, **kwargs: "security_task")
     monkeypatch.setattr(orchestrator, "task_sre", lambda *args, **kwargs: "sre_task")
     monkeypatch.setattr(orchestrator, "task_integrate", lambda *args, **kwargs: "integrate_task")
+    monkeypatch.setattr(orchestrator, "task_critique_design_doc", lambda *args, **kwargs: "critique_task")
 
     calls: list[int] = []
     plan_path = out_dir / "priority_plan.json"
@@ -145,4 +149,42 @@ def test_run_crew_prioritizer_failure_falls_back_and_continues(monkeypatch: pyte
 
     orchestrator.run_crew(output_dir, None, None)
 
-    assert calls == [1, 6]
+    assert calls == [1, 6, 1]
+
+
+def test_run_crew_critique_failure_is_non_fatal(monkeypatch: pytest.MonkeyPatch) -> None:
+    output_dir = "outputs/test-run-critique-failure-nonfatal"
+    out_dir = ROOT / output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "inputs").mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(orchestrator, "build_llm", lambda: object())
+    monkeypatch.setattr(orchestrator, "prioritizer_agent", lambda llm=None: "prioritizer")
+    monkeypatch.setattr(orchestrator, "product_scope_analyst", lambda llm=None: "product")
+    monkeypatch.setattr(orchestrator, "solution_architect", lambda llm=None: "arch")
+    monkeypatch.setattr(orchestrator, "data_api_designer", lambda llm=None: "data")
+    monkeypatch.setattr(orchestrator, "security_reviewer", lambda llm=None: "sec")
+    monkeypatch.setattr(orchestrator, "sre_reviewer", lambda llm=None: "sre")
+    monkeypatch.setattr(orchestrator, "editor_integrator", lambda llm=None: "edit")
+    monkeypatch.setattr(orchestrator, "critique_architect", lambda llm=None: "critique")
+    monkeypatch.setattr(orchestrator, "task_prioritize_review_fixes", lambda *args, **kwargs: "prioritizer_task")
+    monkeypatch.setattr(orchestrator, "task_requirements", lambda *args, **kwargs: "requirements_task")
+    monkeypatch.setattr(orchestrator, "task_architecture", lambda *args, **kwargs: "architecture_task")
+    monkeypatch.setattr(orchestrator, "task_data_api", lambda *args, **kwargs: "data_api_task")
+    monkeypatch.setattr(orchestrator, "task_security", lambda *args, **kwargs: "security_task")
+    monkeypatch.setattr(orchestrator, "task_sre", lambda *args, **kwargs: "sre_task")
+    monkeypatch.setattr(orchestrator, "task_integrate", lambda *args, **kwargs: "integrate_task")
+    monkeypatch.setattr(orchestrator, "task_critique_design_doc", lambda *args, **kwargs: "critique_task")
+
+    calls: list[int] = []
+
+    def _fake_run_tasks_with_crew(_agents, tasks) -> None:
+        calls.append(len(tasks))
+        if len(tasks) == 1 and tasks[0] == "critique_task":
+            raise ValueError("Invalid response from LLM call - None or empty.")
+
+    monkeypatch.setattr(orchestrator, "_run_tasks_with_crew", _fake_run_tasks_with_crew)
+
+    orchestrator.run_crew(output_dir, None, None)
+
+    assert calls == [1, 6, 1]
